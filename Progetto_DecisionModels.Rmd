@@ -1,0 +1,1059 @@
+---
+title: 'Decision Model - Final Project'
+author: 'Paolo Merola, 834098 --- David Govi, 833653'
+date: "07-2018"
+output:
+  html_notebook:
+    df_print: paged
+    highlight: textmate
+    theme: spacelab
+    toc: yes
+    toc_depth: 5
+  word_document:
+    toc: yes
+    toc_depth: '5'
+  pdf_document:
+    df_print: paged
+    highlight: tango
+    toc: yes
+    toc_depth: 5
+  html_document:
+    code_download: yes
+    df_print: paged
+    highlight: textmate
+    theme: spacelab
+    toc: yes
+    toc_depth: 5
+---
+
+
+```{r librerie, include=FALSE}
+
+if(require(genalg) == F)  install.packages('genalg')
+library(genalg)
+
+# if(require(FSelector) == F)  install.packages('FSelector')
+# library(FSelector)
+
+```
+
+
+```{r lettura dati, include=FALSE}
+# setwd('C:/Users/pablo/Desktop/DS - Primo anno Secondo Semestre/Decision Models/Progetto/fanta_nba')
+
+giornata_1 <- read.csv(paste('definitivo',1,'.csv',sep=""),sep=';')
+giornata_2 <- read.csv(paste('definitivo',2,'.csv',sep=""),sep=';')
+giornata_3 <- read.csv(paste('definitivo',3,'.csv',sep=""),sep=';')
+
+giornata_4 <- read.csv(paste('definitivo',4,'.csv',sep=""),sep=';')
+giornata_5 <- read.csv(paste('definitivo',5,'.csv',sep=""),sep=';')
+giornata_6 <- read.csv(paste('definitivo',6,'.csv',sep=""),sep=';')
+
+giornata_7 <- read.csv(paste('definitivo',7,'.csv',sep=""),sep=';')
+giornata_8 <- read.csv(paste('definitivo',8,'.csv',sep=""),sep=';')
+giornata_9 <- read.csv(paste('definitivo',9,'.csv',sep=""),sep=';')
+
+giornata_10 <- read.csv(paste('definitivo',10,'.csv',sep=""),sep=';')
+giornata_11 <- read.csv(paste('definitivo',11,'.csv',sep=""),sep=';')
+giornata_12 <- read.csv(paste('definitivo',12,'.csv',sep=""),sep=';')
+
+giornata_13 <- read.csv(paste('definitivo',13,'.csv',sep=""),sep=';')
+giornata_14 <- read.csv(paste('definitivo',14,'.csv',sep=""),sep=';')
+giornata_15 <- read.csv(paste('definitivo',15,'.csv',sep=""),sep=';')
+
+giornata_16 <- read.csv(paste('definitivo',16,'.csv',sep=""),sep=';')
+giornata_17 <- read.csv(paste('definitivo',17,'.csv',sep=""),sep=';')
+giornata_18 <- read.csv(paste('definitivo',18,'.csv',sep=""),sep=';')
+
+
+```
+
+
+
+```{r Initization, include=FALSE}
+
+
+assign_primary_role <- function(pr){
+  primary_role = as.character(pr[1])
+  
+  if(grepl('/',primary_role)) 
+    return(as.array(as.character(strsplit(x=primary_role, split='/', fixed = T)[[1]]))[1])
+  
+  else return(primary_role)
+}
+
+
+assign_secondary_role <- function(pr){
+  primary_role = as.character(pr[1])
+  
+  if(grepl('/',primary_role)) 
+    return(as.array(as.character(strsplit(x=primary_role, split='/', fixed = T)[[1]]))[2])
+  
+  else return(primary_role)
+  
+}
+
+
+
+rescale_Projection <- function(p,c,u,cw=0.5,uw=0.5){
+  #p = Actual_fpts, c = consistency, u = unpredictability, cw = consistency weight, uw = unpredictability weight
+  return((p*c*cw + p*u*uw)/2)
+}
+
+
+
+initialize_dataset <- function(giornata){
+  
+  vars <- c("X",'Name',"Position","Salary","Actual_fpts","Consistency","Unpredictability", 'Projection', "Actual_fpts")
+  
+  d <- giornata[,vars]
+  d$X <- d$X+1
+  
+  d$Position_1 <- lapply(X = d$Position, FUN = assign_primary_role)
+  d$Position_2 <- lapply(X = d$Position, FUN = assign_secondary_role)
+  
+  # d$Consistency <- scale(d$Consistency)
+  # d$Unpredictability <- scale(d$Unpredictability)
+  
+  d$Consistency_standardized <-
+    1- (d$Consistency - min(d$Consistency))/(max(d$Consistency)-min(d$Consistency))
+  
+  d$Unpredictability_standardized <- 
+    1- (d$Unpredictability - min(d$Unpredictability))/(max(d$Unpredictability)-min(d$Unpredictability))
+  
+  
+    #riscalo la proiezione con i due indici standardizzati, poi ne calcolo la media pesata con le 4 coppie di pesi indicate
+  
+  d$Projection_weighted_70_30 <- mapply(FUN = rescale_Projection, d$Projection, d$Consistency_standardized, d$Unpredictability_standardized, 0.7, 0.3)
+  
+  d$Projection_weighted_50_50 <- mapply(FUN = rescale_Projection, d$Projection, d$Consistency_standardized, d$Unpredictability_standardized, 0.5, 0.5)
+  
+  d$Projection_weighted_30_70 <- mapply(FUN = rescale_Projection, d$Projection, d$Consistency_standardized, d$Unpredictability_standardized, 0.3, 0.7)
+
+  
+  #Questa colonna contiene un valore generato in questo modo: considero la proiezione come media di una normale e l'imprevedibilità come varianza, e genero un valore casuale da questa distribuzione.
+  d$Projection_norm <- mapply(FUN = rnorm, 1, d$Projection, d$Consistency)
+
+  
+  return(d)
+}
+
+d1 <- initialize_dataset(giornata_1)
+d2 <- initialize_dataset(giornata_2)
+d3 <- initialize_dataset(giornata_3)
+d4 <- initialize_dataset(giornata_4)
+d5 <- initialize_dataset(giornata_5)
+d6 <- initialize_dataset(giornata_6)
+d7 <- initialize_dataset(giornata_7)
+d8 <- initialize_dataset(giornata_8)
+d9 <- initialize_dataset(giornata_9)
+d10 <- initialize_dataset(giornata_10)
+d11 <- initialize_dataset(giornata_11)
+d12 <- initialize_dataset(giornata_12)
+d13 <- initialize_dataset(giornata_13)
+d14 <- initialize_dataset(giornata_14)
+d15 <- initialize_dataset(giornata_15)
+d16 <- initialize_dataset(giornata_16)
+d17 <- initialize_dataset(giornata_17)
+d18 <- initialize_dataset(giornata_18)
+
+datasets <- list(d1,d2,d3,d4,d5,d6,d7,d8,d9,d10,d11,d12,d13,d14,d15,d16,d17,d18)
+
+```
+
+#Scelta della squadra mediante algoritmo genetico
+##Controllo validità ruoli
+Controlla se l'elenco di ruoli UNIVOCI fornito copre tutti i ruoli correttamente (ausiliaria per la funzione successiva)
+```{r check_positions, include=FALSE}
+
+check_positions <- function(positions){
+  
+  if(length(positions)!=8) return(F)
+  
+  roles <- data.frame('Role' = c("C","PF","PG","SF","SG",'F','G','Util'), 'Assigned' = c(F,F,F,F,F,F,F,F))
+  rownames(roles) <- roles$Role
+  
+  
+  for(role in positions){
+    #Se il ruolo è C, guardo in tutti i posti dove potrebbe andare, e se riesco ad inserirlo vado avanti, altrimenti 
+    #posso smettere di cercare perchè sicuramente la squadra non sarà valida
+    if(role =='C'){
+      if(roles['C','Assigned'] == F) roles['C','Assigned'] = T
+      else{ 
+        if(roles['Util','Assigned'] == F) roles['Util','Assigned'] = T
+        else return(F)
+      }
+    }
+    
+    
+    if(role =='PG'){
+      if(roles['PG','Assigned'] == F) roles['PG','Assigned'] = T
+      else {
+        if(roles['G','Assigned'] == F) roles['G','Assigned'] = T
+        else {
+          if(roles['Util','Assigned'] == F) roles['Util','Assigned'] = T
+          else return(F)
+        }
+      }
+    }
+    
+    
+    if(role =='SG'){
+      if(roles['SG','Assigned'] == F) roles['SG','Assigned'] = T
+      else {
+        if(roles['G','Assigned'] == F) roles['G','Assigned'] = T
+        else {
+          if(roles['Util','Assigned'] == F) roles['Util','Assigned'] = T
+          else return(F)
+        }
+      }
+    }
+    
+    
+    if(role =='PF'){
+      if(roles['PF','Assigned'] == F) roles['PF','Assigned'] = T
+      else {
+        if(roles['F','Assigned'] == F) roles['F','Assigned'] = T
+        else {
+          if(roles['Util','Assigned'] == F) roles['Util','Assigned'] = T
+          else return(F)
+        }
+      }
+    }
+    
+    
+    if(role =='SF'){
+      if(roles['SF','Assigned'] == F) roles['SF','Assigned'] = T
+      else {
+        if(roles['F','Assigned'] == F) roles['F','Assigned'] = T
+        else {
+          if(roles['Util','Assigned'] == F) roles['Util','Assigned'] = T
+          else return(F)
+        }
+      }
+    }
+    
+  } #end for loop
+  
+  return(T)
+  
+}#end function
+
+
+```
+##Controllo validità squadra
+Controlla se l'elenco di giocatori forniti copra correttamente tutti i ruoli (utilizza la funzione precedente)
+```{r check_team_validity, include=FALSE}
+
+check_team_validity <- function(sol){
+  
+  if(sum(sol)!=8) return(F)
+  #Devo controllare che la soluzione abbia riempito i ruoli nel modo giusto.
+  
+  roles<- c("C","PF","PG","SF","SG")
+  
+  #primo filtro: banale, se manca del tutto una posizione allora la soluzione non può essere valida
+  roles_covered <- c(d[sol==1,]$Position_1,d[sol==1,]$Position_2)
+  
+  for(role in roles) if(role %in% roles_covered == FALSE) return(F)
+  
+  #Ok, quindi ogni ruolo è ricoperto almeno da un giocatore. Ora vediamo se, tra tutte le possibili 
+  #combinazioni di ruoli primari e secondari, ce ne sia almeno una valida
+  
+  solution <- d[sol==1,]
+  #Creo un dataframe con tutte le possibili combinazioni di ruoli primario e secondario, poi ci inserisco i ruoli effettivi
+  #(che quindi dipendono dai giocatori scelti), infine controllo se tra queste combinazioni ve ne sia una valida.
+  #Se c'è una combinazione valida allora la squadra è valida
+  all_possible_roles_combinations <- data.frame(t(expand.grid(rep(list(1:2),8))))
+  rownames(all_possible_roles_combinations) <- solution$X
+  
+  for(i in rownames(all_possible_roles_combinations)){
+    row <- all_possible_roles_combinations[i,]
+    row <- gsub(1,solution[solution$X ==i,'Position_1'],row)
+    row <- gsub(2,solution[solution$X ==i,'Position_2'],row)
+    all_possible_roles_combinations[i,] <- row
+  }
+  all_combinations <- data.frame(t(all_possible_roles_combinations))
+  
+  
+  for(j in rownames(all_combinations)){
+    if(check_positions(all_combinations[j,])) return(T)
+  }
+  
+  return(F)
+  
+}
+
+
+```
+
+
+# Funzione di valutazione
+Restituisce il valore della squadra in fantapunti (in particolare, restituisce 0 se la squadra non è valida)
+```{r eval_function, include=FALSE}
+
+
+evalFunc <- function(current_solution) {
+  current_solution_fantapoints <- current_solution %*% d$Actual_fpts
+  current_solution_cost <- current_solution  %*% d$Salary
+  
+  if (current_solution_cost > budget #primo controllo : sono andato fuori budget?
+      || sum(current_solution) != 8 #secondo controllo: ho esattamente 8 giocatori?
+      || !check_team_validity(sol=current_solution) #terzo controllo: ho coperto correttamente i ruoli?
+  ) 
+    return(0) else return(-current_solution_fantapoints)
+}
+
+
+evalFunc_norm <- function(current_solution) {
+  current_solution_fantapoints <- current_solution %*% d$Projection_norm
+  current_solution_cost <- current_solution  %*% d$Salary
+  
+  if (current_solution_cost > budget #primo controllo : sono andato fuori budget?
+      || sum(current_solution) != 8 #secondo controllo: ho esattamente 8 giocatori?
+      || !check_team_validity(sol=current_solution) #terzo controllo: ho coperto correttamente i ruoli?
+  ) 
+    return(0) else return(-current_solution_fantapoints)
+}
+
+
+evalFunc_redacted_70_30 <- function(current_solution) {
+  current_solution_fantapoints <- current_solution %*% d$Projection_weighted_70_30
+  current_solution_cost <- current_solution  %*% d$Salary
+  
+  if (current_solution_cost > budget #primo controllo : sono andato fuori budget?
+      || sum(current_solution) != 8 #secondo controllo: ho esattamente 8 giocatori?
+      || !check_team_validity(sol=current_solution) #terzo controllo: ho coperto correttamente i ruoli?
+  ) 
+    return(0) else return(-current_solution_fantapoints)
+}
+
+
+evalFunc_redacted_50_50 <- function(current_solution) {
+  current_solution_fantapoints <- current_solution %*% d$Projection_weighted_50_50
+  current_solution_cost <- current_solution  %*% d$Salary
+  
+  if (current_solution_cost > budget #primo controllo : sono andato fuori budget?
+      || sum(current_solution) != 8 #secondo controllo: ho esattamente 8 giocatori?
+      || !check_team_validity(sol=current_solution) #terzo controllo: ho coperto correttamente i ruoli?
+  ) 
+    return(0) else return(-current_solution_fantapoints)
+}
+
+
+evalFunc_redacted_30_70 <- function(current_solution) {
+  current_solution_fantapoints <- current_solution %*% d$Projection_weighted_30_70
+  current_solution_cost <- current_solution  %*% d$Salary
+  
+  if (current_solution_cost > budget #primo controllo : sono andato fuori budget?
+      || sum(current_solution) != 8 #secondo controllo: ho esattamente 8 giocatori?
+      || !check_team_validity(sol=current_solution) #terzo controllo: ho coperto correttamente i ruoli?
+  ) 
+    return(0) else return(-current_solution_fantapoints)
+}
+
+```
+
+
+```{r get_solution_from_model}
+get_solution_from_model <- function(GAmodel){
+  
+ foo <-  gsub(' \n', '', strsplit(x=summary(GAmodel), split=': ', fixed = FALSE, perl = FALSE, useBytes = FALSE)[[1]][2])
+ 
+ return(as.integer(unlist(strsplit(foo, split=' '))))
+ 
+}
+
+
+```
+
+
+
+```{r soluzioni}
+
+s1 <- as.integer(strsplit('1 1 1 1 0 0 1 0 0 0 0 0 1 0 0 0 0 1 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0',' ')[[1]])
+
+
+s2 <- as.integer(strsplit('0 1 0 0 0 0 1 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0',' ')[[1]])
+
+
+s3 <- as.integer(strsplit('1 1 0 0 0 0 0 0 1 0 1 0 0 0 0 0 0 1 0 0 1 0 1 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0',' ')[[1]])
+
+
+s4 <- as.integer(strsplit('1 1 0 0 1 0 1 0 0 0 0 0 1 0 0 1 0 0 0 1 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0',' ')[[1]])
+
+
+s5 <- as.integer(strsplit('1 0 0 0 0 0 0 1 0 0 0 0 0 0 1 1 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0',' ')[[1]])
+
+
+s6 <- as.integer(strsplit('1 1 0 1 0 0 0 1 0 1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 1 0 0 0 0 0 0 0 0 0',' ')[[1]])
+
+
+s7 <- as.integer(strsplit('0 0 0 0 0 0 0 0 1 0 1 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0',' ')[[1]])
+
+
+s8 <- as.integer(strsplit('1 0 1 0 0 0 0 1 0 1 0 0 0 1 0 1 0 0 0 0 1 0 0 0 0 0 0 0 1 0 0 0 0 0',' ')[[1]])
+
+
+s9 <- as.integer(strsplit('1 0 1 1 0 1 0 0 0 1 0 0 0 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0',' ')[[1]])
+
+
+s10 <- as.integer(strsplit('0 0 1 1 0 1 1 0 1 0 0 0 1 0 0 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0',' ')[[1]])
+
+
+s11 <- as.integer(strsplit('1 0 1 0 0 1 0 0 0 0 0 1 0 0 1 1 0 1 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0',' ')[[1]])
+
+
+s12 <- as.integer(strsplit('0 1 1 0 0 0 0 0 0 1 0 0 0 0 0 0 1 0 1 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0',' ')[[1]])
+  
+
+s13 <- as.integer(strsplit('1 0 0 0 1 0 1 0 0 0 0 0 1 0 0 0 0 0 1 0 1 0 0 0 0 1 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0',' ')[[1]])
+
+
+s14 <- as.integer(strsplit('0 1 1 1 1 0 1 0 1 0 1 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0',' ')[[1]])
+
+
+s15 <- as.integer(strsplit('0 0 1 0 0 1 0 1 0 0 0 0 0 0 0 1 0 1 0 0 0 0 0 0 0 1 0 0 0 1 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0',' ')[[1]])
+
+
+s16 <- as.integer(strsplit('1 0 1 1 0 0 0 1 1 0 0 0 0 0 0 0 0 0 1 0 1 0 0 0 0 0 0 0 1 0 0 0 0',' ')[[1]])
+
+
+s17 <- as.integer(strsplit('1 0 0 0 1 0 1 0 0 0 0 0 0 0 0 0 0 1 0 1 0 0 0 0 0 0 0 0 0 1 1 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0',' ')[[1]])
+
+
+s18 <- as.integer(strsplit('1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0',' ')[[1]])
+
+
+```
+
+
+
+```{r tutti i modelli con modifiche alle proiezioni}
+
+budget <- 50000
+
+
+d <- d1
+
+GAmodel1_norm <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_norm)
+
+GAmodel1_70_30 <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_redacted_70_30)
+
+GAmodel1_50_50 <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_redacted_50_50)
+
+GAmodel1_30_70 <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_redacted_30_70)
+
+
+d <- d2
+
+GAmodel2_norm <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_norm)
+
+GAmodel2_70_30 <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_redacted_70_30)
+
+GAmodel2_50_50 <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_redacted_50_50)
+
+GAmodel2_30_70 <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_redacted_30_70)
+
+
+d <- d3
+
+GAmodel3_norm <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_norm)
+
+GAmodel3_70_30 <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_redacted_70_30)
+
+GAmodel3_50_50 <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_redacted_50_50)
+
+GAmodel3_30_70 <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_redacted_30_70)
+
+
+d <- d4
+
+GAmodel4_norm <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_norm)
+
+GAmodel4_70_30 <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_redacted_70_30)
+
+GAmodel4_50_50 <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_redacted_50_50)
+
+GAmodel4_30_70 <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_redacted_30_70)
+
+
+d <- d5
+
+GAmodel5_norm <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_norm)
+
+GAmodel5_70_30 <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_redacted_70_30)
+
+GAmodel5_50_50 <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_redacted_50_50)
+
+GAmodel5_30_70 <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_redacted_30_70)
+
+
+d <- d6
+
+GAmodel6_norm <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_norm)
+
+GAmodel6_70_30 <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_redacted_70_30)
+
+GAmodel6_50_50 <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_redacted_50_50)
+
+GAmodel6_30_70 <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_redacted_30_70)
+
+
+d <- d7
+
+GAmodel7_norm <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_norm)
+
+GAmodel7_70_30 <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_redacted_70_30)
+
+GAmodel7_50_50 <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_redacted_50_50)
+
+GAmodel7_30_70 <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_redacted_30_70)
+
+#####################################checkpoint################################
+d <- d8
+
+GAmodel8_norm <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_norm)
+
+GAmodel8_70_30 <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_redacted_70_30)
+
+GAmodel8_50_50 <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_redacted_50_50)
+
+GAmodel8_30_70 <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_redacted_30_70)
+
+
+d <- d9
+
+GAmodel9_norm <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_norm)
+
+GAmodel9_70_30 <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_redacted_70_30)
+
+GAmodel9_50_50 <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_redacted_50_50)
+
+GAmodel9_30_70 <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_redacted_30_70)
+
+
+d <- d10
+
+GAmodel10_norm <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_norm)
+
+GAmodel10_70_30 <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_redacted_70_30)
+
+GAmodel10_50_50 <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_redacted_50_50)
+
+GAmodel10_30_70 <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_redacted_30_70)
+
+
+d <- d11
+
+GAmodel11_norm <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_norm)
+
+GAmodel11_70_30 <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_redacted_70_30)
+
+GAmodel11_50_50 <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_redacted_50_50)
+
+GAmodel11_30_70 <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_redacted_30_70)
+
+
+d <- d12
+
+GAmodel12_norm <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_norm)
+
+GAmodel12_70_30 <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_redacted_70_30)
+
+GAmodel12_50_50 <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_redacted_50_50)
+
+GAmodel12_30_70 <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_redacted_30_70)
+
+
+d <- d13
+
+GAmodel13_norm <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_norm)
+
+GAmodel13_70_30 <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_redacted_70_30)
+
+GAmodel13_50_50 <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_redacted_50_50)
+
+GAmodel13_30_70 <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_redacted_30_70)
+
+
+d <- d14
+
+GAmodel14_norm <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_norm)
+
+GAmodel14_70_30 <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_redacted_70_30)
+
+GAmodel14_50_50 <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_redacted_50_50)
+
+GAmodel14_30_70 <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_redacted_30_70)
+
+
+d <- d15
+
+GAmodel15_norm <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_norm)
+
+GAmodel15_70_30 <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_redacted_70_30)
+
+GAmodel15_50_50 <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_redacted_50_50)
+
+GAmodel15_30_70 <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_redacted_30_70)
+
+
+d <- d16
+
+GAmodel16_norm <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_norm)
+
+GAmodel16_70_30 <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_redacted_70_30)
+
+GAmodel16_50_50 <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_redacted_50_50)
+
+GAmodel16_30_70 <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_redacted_30_70)
+
+
+d <- d17
+
+GAmodel17_norm <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_norm)
+
+GAmodel17_70_30 <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_redacted_70_30)
+
+GAmodel17_50_50 <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_redacted_50_50)
+
+GAmodel17_30_70 <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_redacted_30_70)
+
+
+d <- d18
+
+GAmodel18_norm <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_norm)
+
+GAmodel18_70_30 <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_redacted_70_30)
+
+GAmodel18_50_50 <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_redacted_50_50)
+
+GAmodel18_30_70 <- rbga.bin(size = nrow(d), popSize = 300, iters = 100, elitism = T, evalFunc = evalFunc_redacted_30_70)
+
+
+
+
+```
+
+```{r all_solutions}
+
+s1_norm <- get_solution_from_model(GAmodel = GAmodel1_norm)
+s2_norm <- get_solution_from_model(GAmodel = GAmodel2_norm)
+s3_norm <- get_solution_from_model(GAmodel = GAmodel3_norm)
+s4_norm <- get_solution_from_model(GAmodel = GAmodel4_norm)
+s5_norm <- get_solution_from_model(GAmodel = GAmodel5_norm)
+s6_norm <- get_solution_from_model(GAmodel = GAmodel6_norm)
+s7_norm <- get_solution_from_model(GAmodel = GAmodel7_norm)
+s8_norm <- get_solution_from_model(GAmodel = GAmodel8_norm)
+s9_norm <- get_solution_from_model(GAmodel = GAmodel9_norm)
+
+
+s10_norm <- get_solution_from_model(GAmodel = GAmodel10_norm)
+s11_norm <- get_solution_from_model(GAmodel = GAmodel11_norm)
+s12_norm <- get_solution_from_model(GAmodel = GAmodel12_norm)
+s13_norm <- get_solution_from_model(GAmodel = GAmodel13_norm)
+s14_norm <- get_solution_from_model(GAmodel = GAmodel14_norm)
+s15_norm <- get_solution_from_model(GAmodel = GAmodel15_norm)
+s16_norm <- get_solution_from_model(GAmodel = GAmodel16_norm)
+s17_norm <- get_solution_from_model(GAmodel = GAmodel17_norm)
+s18_norm <- get_solution_from_model(GAmodel = GAmodel18_norm)
+
+
+
+s1_70_30 <- get_solution_from_model(GAmodel = GAmodel1_70_30)
+s2_70_30 <- get_solution_from_model(GAmodel = GAmodel2_70_30)
+s3_70_30 <- get_solution_from_model(GAmodel = GAmodel3_70_30)
+s4_70_30 <- get_solution_from_model(GAmodel = GAmodel4_70_30)
+s5_70_30 <- get_solution_from_model(GAmodel = GAmodel5_70_30)
+s6_70_30 <- get_solution_from_model(GAmodel = GAmodel6_70_30)
+s7_70_30 <- get_solution_from_model(GAmodel = GAmodel7_70_30)
+s8_70_30 <- get_solution_from_model(GAmodel = GAmodel8_70_30)
+s9_70_30 <- get_solution_from_model(GAmodel = GAmodel9_70_30)
+
+
+s10_70_30 <- get_solution_from_model(GAmodel = GAmodel10_70_30)
+s11_70_30 <- get_solution_from_model(GAmodel = GAmodel11_70_30)
+s12_70_30 <- get_solution_from_model(GAmodel = GAmodel12_70_30)
+s13_70_30 <- get_solution_from_model(GAmodel = GAmodel13_70_30)
+s14_70_30 <- get_solution_from_model(GAmodel = GAmodel14_70_30)
+s15_70_30 <- get_solution_from_model(GAmodel = GAmodel15_70_30)
+s16_70_30 <- get_solution_from_model(GAmodel = GAmodel16_70_30)
+s17_70_30 <- get_solution_from_model(GAmodel = GAmodel17_70_30)
+s18_70_30 <- get_solution_from_model(GAmodel = GAmodel18_70_30)
+
+
+
+s1_50_50 <- get_solution_from_model(GAmodel = GAmodel1_50_50)
+s2_50_50 <- get_solution_from_model(GAmodel = GAmodel2_50_50)
+s3_50_50 <- get_solution_from_model(GAmodel = GAmodel3_50_50)
+s4_50_50 <- get_solution_from_model(GAmodel = GAmodel4_50_50)
+s5_50_50 <- get_solution_from_model(GAmodel = GAmodel5_50_50)
+s6_50_50 <- get_solution_from_model(GAmodel = GAmodel6_50_50)
+s7_50_50 <- get_solution_from_model(GAmodel = GAmodel7_50_50)
+s8_50_50 <- get_solution_from_model(GAmodel = GAmodel8_50_50)
+s9_50_50 <- get_solution_from_model(GAmodel = GAmodel9_50_50)
+
+
+s10_50_50 <- get_solution_from_model(GAmodel = GAmodel10_50_50)
+s11_50_50 <- get_solution_from_model(GAmodel = GAmodel11_50_50)
+s12_50_50 <- get_solution_from_model(GAmodel = GAmodel12_50_50)
+s13_50_50 <- get_solution_from_model(GAmodel = GAmodel13_50_50)
+s14_50_50 <- get_solution_from_model(GAmodel = GAmodel14_50_50)
+s15_50_50 <- get_solution_from_model(GAmodel = GAmodel15_50_50)
+s16_50_50 <- get_solution_from_model(GAmodel = GAmodel16_50_50)
+s17_50_50 <- get_solution_from_model(GAmodel = GAmodel17_50_50)
+s18_50_50 <- get_solution_from_model(GAmodel = GAmodel18_50_50)
+
+
+
+s1_30_70 <- get_solution_from_model(GAmodel = GAmodel1_30_70)
+s2_30_70 <- get_solution_from_model(GAmodel = GAmodel2_30_70)
+s3_30_70 <- get_solution_from_model(GAmodel = GAmodel3_30_70)
+s4_30_70 <- get_solution_from_model(GAmodel = GAmodel4_30_70)
+s5_30_70 <- get_solution_from_model(GAmodel = GAmodel5_30_70)
+s6_30_70 <- get_solution_from_model(GAmodel = GAmodel6_30_70)
+s7_30_70 <- get_solution_from_model(GAmodel = GAmodel7_30_70)
+s8_30_70 <- get_solution_from_model(GAmodel = GAmodel8_30_70)
+s9_30_70 <- get_solution_from_model(GAmodel = GAmodel9_30_70)
+
+
+s10_30_70 <- get_solution_from_model(GAmodel = GAmodel10_30_70)
+s11_30_70 <- get_solution_from_model(GAmodel = GAmodel11_30_70)
+s12_30_70 <- get_solution_from_model(GAmodel = GAmodel12_30_70)
+s13_30_70 <- get_solution_from_model(GAmodel = GAmodel13_30_70)
+s14_30_70 <- get_solution_from_model(GAmodel = GAmodel14_30_70)
+s15_30_70 <- get_solution_from_model(GAmodel = GAmodel15_30_70)
+s16_30_70 <- get_solution_from_model(GAmodel = GAmodel16_30_70)
+s17_30_70 <- get_solution_from_model(GAmodel = GAmodel17_30_70)
+s18_30_70 <- get_solution_from_model(GAmodel = GAmodel18_30_70)
+
+
+
+
+```
+
+
+```{r all_solutions_dataframes}
+#Assemblo le tabelle dei risultati: 5 tabelle, una per ogni tipo di elaborazione
+
+
+colnames_gen <- rep("", 18)
+rownames_gen <- rep("",8)
+for(i in 1:8) rownames_gen[i] <- paste('Giocatore',i)
+for(i in 1:18)  colnames_gen[i] <- paste('Giornata',i)
+
+solutions_predictions_only <- cbind(as.data.frame(d1[s1==1,'Name']),
+                                            as.data.frame(d2[s2==1,'Name']),
+                                            as.data.frame(d3[s3==1,'Name']),
+                                            as.data.frame(d4[s4==1,'Name']),
+                                            as.data.frame(d5[s5==1,'Name']),
+                                            as.data.frame(d6[s6==1,'Name']),
+                                            as.data.frame(d7[s7==1,'Name']),
+                                            as.data.frame(d8[s8==1,'Name']),
+                                            as.data.frame(d9[s9==1,'Name']),
+                                            as.data.frame(d10[s10==1,'Name']),
+                                            as.data.frame(d11[s11==1,'Name']),
+                                            as.data.frame(d12[s12==1,'Name']),
+                                            as.data.frame(d13[s13==1,'Name']),
+                                            as.data.frame(d14[s14==1,'Name']),
+                                            as.data.frame(d15[s15==1,'Name']),
+                                            as.data.frame(d16[s16==1,'Name']),
+                                            as.data.frame(d17[s17==1,'Name']),
+                                            as.data.frame(d18[s18==1,'Name'])
+                                            )
+
+projections_predictions_only <- cbind(as.data.frame(sum(d1[s1==1,'Projection'])),
+                                            as.data.frame(sum(d2[s2==1,'Projection'])),
+                                            as.data.frame(sum(d3[s3==1,'Projection'])),
+                                            as.data.frame(sum(d4[s4==1,'Projection'])),
+                                            as.data.frame(sum(d5[s5==1,'Projection'])),
+                                            as.data.frame(sum(d6[s6==1,'Projection'])),
+                                            as.data.frame(sum(d7[s7==1,'Projection'])),
+                                            as.data.frame(sum(d8[s8==1,'Projection'])),
+                                            as.data.frame(sum(d9[s9==1,'Projection'])),
+                                            as.data.frame(sum(d10[s10==1,'Projection'])),
+                                            as.data.frame(sum(d11[s11==1,'Projection'])),
+                                            as.data.frame(sum(d12[s12==1,'Projection'])),
+                                            as.data.frame(sum(d13[s13==1,'Projection'])),
+                                            as.data.frame(sum(d14[s14==1,'Projection'])),
+                                            as.data.frame(sum(d15[s15==1,'Projection'])),
+                                            as.data.frame(sum(d16[s16==1,'Projection'])),
+                                            as.data.frame(sum(d17[s17==1,'Projection'])),
+                                            as.data.frame(sum(d18[s18==1,'Projection']))
+                                            )
+
+rownames(projections_predictions_only) <- 'Projection'
+
+actualValues_predictions_only <- cbind(as.data.frame(sum(d1[s1==1,'Actual_fpts'])),
+                                            as.data.frame(sum(d2[s2==1,'Actual_fpts'])),
+                                            as.data.frame(sum(d3[s3==1,'Actual_fpts'])),
+                                            as.data.frame(sum(d4[s4==1,'Actual_fpts'])),
+                                            as.data.frame(sum(d5[s5==1,'Actual_fpts'])),
+                                            as.data.frame(sum(d6[s6==1,'Actual_fpts'])),
+                                            as.data.frame(sum(d7[s7==1,'Actual_fpts'])),
+                                            as.data.frame(sum(d8[s8==1,'Actual_fpts'])),
+                                            as.data.frame(sum(d9[s9==1,'Actual_fpts'])),
+                                            as.data.frame(sum(d10[s10==1,'Actual_fpts'])),
+                                            as.data.frame(sum(d11[s11==1,'Actual_fpts'])),
+                                            as.data.frame(sum(d12[s12==1,'Actual_fpts'])),
+                                            as.data.frame(sum(d13[s13==1,'Actual_fpts'])),
+                                            as.data.frame(sum(d14[s14==1,'Actual_fpts'])),
+                                            as.data.frame(sum(d15[s15==1,'Actual_fpts'])),
+                                            as.data.frame(sum(d16[s16==1,'Actual_fpts'])),
+                                            as.data.frame(sum(d17[s17==1,'Actual_fpts'])),
+                                            as.data.frame(sum(d18[s18==1,'Actual_fpts']))
+                                            )
+
+
+rownames(actualValues_predictions_only) <- 'Actual fpts'
+
+colnames(projections_predictions_only) <- colnames(solutions_predictions_only)
+colnames(actualValues_predictions_only)<- colnames(solutions_predictions_only)
+
+solutions_predictions_only <- rbind(solutions_predictions_only,projections_predictions_only,actualValues_predictions_only)
+
+
+
+solutions_norm <- cbind(as.data.frame(d1[s1_norm==1,'Name']),
+                                            as.data.frame(d2[s2_norm==1,'Name']),
+                                            as.data.frame(d3[s3_norm==1,'Name']),
+                                            as.data.frame(d4[s4_norm==1,'Name']),
+                                            as.data.frame(d5[s5_norm==1,'Name']),
+                                            as.data.frame(d6[s6_norm==1,'Name']),
+                                            as.data.frame(d7[s7_norm==1,'Name']),
+                                            as.data.frame(d8[s8_norm==1,'Name']),
+                                            as.data.frame(d9[s9_norm==1,'Name']),
+                                            as.data.frame(d10[s10_norm==1,'Name']),
+                                            as.data.frame(d11[s11_norm==1,'Name']),
+                                            as.data.frame(d12[s12_norm==1,'Name']),
+                                            as.data.frame(d13[s13_norm==1,'Name']),
+                                            as.data.frame(d14[s14_norm==1,'Name']),
+                                            as.data.frame(d15[s15_norm==1,'Name']),
+                                            as.data.frame(d16[s16_norm==1,'Name']),
+                                            as.data.frame(d17[s17_norm==1,'Name']),
+                                            as.data.frame(d18[s18_norm==1,'Name'])
+                                            )
+
+
+solutions_70_30 <- cbind(as.data.frame(d1[s1_70_30==1,'Name']),
+                                            as.data.frame(d2[s2_70_30==1,'Name']),
+                                            as.data.frame(d3[s3_70_30==1,'Name']),
+                                            as.data.frame(d4[s4_70_30==1,'Name']),
+                                            as.data.frame(d5[s5_70_30==1,'Name']),
+                                            as.data.frame(d6[s6_70_30==1,'Name']),
+                                            as.data.frame(d7[s7_70_30==1,'Name']),
+                                            as.data.frame(d8[s8_70_30==1,'Name']),
+                                            as.data.frame(d9[s9_70_30==1,'Name']),
+                                            as.data.frame(d10[s10_70_30==1,'Name']),
+                                            as.data.frame(d11[s11_70_30==1,'Name']),
+                                            as.data.frame(d12[s12_70_30==1,'Name']),
+                                            as.data.frame(d13[s13_70_30==1,'Name']),
+                                            as.data.frame(d14[s14_70_30==1,'Name']),
+                                            as.data.frame(d15[s15_70_30==1,'Name']),
+                                            as.data.frame(d16[s16_70_30==1,'Name']),
+                                            as.data.frame(d17[s17_70_30==1,'Name']),
+                                            as.data.frame(d18[s18_70_30==1,'Name'])
+                                            )
+
+
+solutions_50_50<- cbind(as.data.frame(d1[s1_50_50==1,'Name']),
+                                            as.data.frame(d2[s2_50_50==1,'Name']),
+                                            as.data.frame(d3[s3_50_50==1,'Name']),
+                                            as.data.frame(d4[s4_50_50==1,'Name']),
+                                            as.data.frame(d5[s5_50_50==1,'Name']),
+                                            as.data.frame(d6[s6_50_50==1,'Name']),
+                                            as.data.frame(d7[s7_50_50==1,'Name']),
+                                            as.data.frame(d8[s8_50_50==1,'Name']),
+                                            as.data.frame(d9[s9_50_50==1,'Name']),
+                                            as.data.frame(d10[s10_50_50==1,'Name']),
+                                            as.data.frame(d11[s11_50_50==1,'Name']),
+                                            as.data.frame(d12[s12_50_50==1,'Name']),
+                                            as.data.frame(d13[s13_50_50==1,'Name']),
+                                            as.data.frame(d14[s14_50_50==1,'Name']),
+                                            as.data.frame(d15[s15_50_50==1,'Name']),
+                                            as.data.frame(d16[s16_50_50==1,'Name']),
+                                            as.data.frame(d17[s17_50_50==1,'Name']),
+                                            as.data.frame(d18[s18_50_50==1,'Name'])
+                                            )
+
+
+solutions_30_70<- cbind(as.data.frame(d1[s1_30_70==1,'Name']),
+                                            as.data.frame(d2[s2_30_70==1,'Name']),
+                                            as.data.frame(d3[s3_30_70==1,'Name']),
+                                            as.data.frame(d4[s4_30_70==1,'Name']),
+                                            as.data.frame(d5[s5_30_70==1,'Name']),
+                                            as.data.frame(d6[s6_30_70==1,'Name']),
+                                            as.data.frame(d7[s7_30_70==1,'Name']),
+                                            as.data.frame(d8[s8_30_70==1,'Name']),
+                                            as.data.frame(d9[s9_30_70==1,'Name']),
+                                            as.data.frame(d10[s10_30_70==1,'Name']),
+                                            as.data.frame(d11[s11_30_70==1,'Name']),
+                                            as.data.frame(d12[s12_30_70==1,'Name']),
+                                            as.data.frame(d13[s13_30_70==1,'Name']),
+                                            as.data.frame(d14[s14_30_70==1,'Name']),
+                                            as.data.frame(d15[s15_30_70==1,'Name']),
+                                            as.data.frame(d16[s16_30_70==1,'Name']),
+                                            as.data.frame(d17[s17_30_70==1,'Name']),
+                                            as.data.frame(d18[s18_30_70==1,'Name'])
+                                            )
+
+
+
+rownames(solutions_predictions_only) <- rownames_gen
+colnames(solutions_predictions_only) <- colnames_gen
+
+rownames(solutions_70_30) <- rownames_gen
+colnames(solutions_70_30) <- colnames_gen
+
+rownames(solutions_50_50) <- rownames_gen
+colnames(solutions_50_50) <- colnames_gen
+
+rownames(solutions_30_70) <- rownames_gen
+colnames(solutions_30_70) <- colnames_gen
+
+
+save.image(file='Decisione_finoAGiornata7.RData')
+
+```
+
+
+
+#Scelta della squadra con hill-climbing
+```{r}
+
+set.seed(14582)
+
+convert_into_binary <- function(team_to_convert){
+  binary <- rep(0,nrow(d))
+for(i in 1:nrow(d))  if(i %in% team_to_convert) binary[i] <- 1 
+  return(binary)
+}
+
+
+evaluator <- function(subset){
+
+    return(-evalFunc(convert_into_binary(subset)))
+   
+}
+
+evaluator_norm <- function(subset){
+
+    return(-evalFunc_norm(convert_into_binary(subset)))
+   
+}
+
+evaluator_70_30 <- function(subset){
+
+    return(-evalFunc_redacted_70_30(convert_into_binary(subset)))
+   
+}
+
+evaluator_50_50 <- function(subset){
+
+    return(-evalFunc_redacted_50_50(convert_into_binary(subset)))
+   
+}
+
+evaluator_30_70 <- function(subset){
+
+    return(-evalFunc_redacted_30_70(convert_into_binary(subset)))
+   
+}
+
+hill_climbing_iterated <- function(max_iter, evaluator){
+  
+  max_val = 0
+  best_team = c()
+  for( i in 1:max_iter){
+
+    sol_hill <- convert_into_binary(hill.climbing.search(sample(d$X,20), evaluator))
+    val<- -evalFunc(sol_hill)
+    if(val > max_val){ 
+      max_val <- val
+      best_team = sol_hill
+    }
+  }
+  print(max_val)
+  return(best_team)
+}
+
+
+```
+
+
+
+
+```{r}
+solutions_hill <- data.frame(matrix(0, nrow = 18, ncol = 2))
+solutions_hill_norm <- data.frame(matrix(0, nrow = 18, ncol = 2))
+solutions_hill_norm <- data.frame(matrix(0, nrow = 18, ncol = 2))
+solutions_hill_70_30 <- data.frame(matrix(0, nrow = 18, ncol = 2))
+solutions_hill_50_50 <- data.frame(matrix(0, nrow = 18, ncol = 2))
+solutions_hill_30_70 <- data.frame(matrix(0, nrow = 18, ncol = 2))
+colnames <- rep('',8)
+
+
+for(i in 1:8) colnames[i] <- paste('Player',i)
+
+colnames(solutions_hill) <- c('Punti attesi', 'Punti effettivi')
+colnames(solutions_hill_norm) <- c('Punti attesi', 'Punti effettivi')
+colnames(solutions_hill_70_30) <- c('Punti attesi', 'Punti effettivi')
+colnames(solutions_hill_50_50) <- c('Punti attesi', 'Punti effettivi')
+colnames(solutions_hill_30_70) <- c('Punti attesi', 'Punti effettivi')
+
+rownames(solutions_hill) <- paste('Giornata',1:18)
+rownames(solutions_hill_norm) <- paste('Giornata',1:18)
+rownames(solutions_hill_70_30) <- paste('Giornata',1:18)
+rownames(solutions_hill_50_50) <- paste('Giornata',1:18)
+rownames(solutions_hill_30_70) <- paste('Giornata',1:18)
+
+
+for(i in 1:18){
+  d<- datasets[i][[1]]
+
+  print(c('Giornata' = i, 'Parametri' = 'no', 'Tempo impiegato' = system.time(sol <- hill_climbing_iterated(100,evaluator))[[3]]))
+  solutions_hill[i,] <- c(sum(d[sol==1,]$Projection), sum(d[sol==1,]$Actual_fpts))
+}
+write.csv(x = solutions_hill, file = 'C:/Users/pablo/Desktop/DS - Primo anno Secondo Semestre/Decision Models/Progetto/fanta_nba/Risultati_hill_climbing/solutions_hill.csv')
+
+
+  for(i in 1:18){
+    d<- datasets[i][[1]]
+    print(c('Giornata' = i, 'Parametri' = '50_50', 'Tempo impiegato' = system.time(sol_50_50 <- hill_climbing_folded(100,evaluator_50_50))[[3]]))
+    
+  solutions_hill_50_50[i,] <- c(sum(d[sol_50_50==1,]$Projection), sum(d[sol_50_50==1,]$Actual_fpts))
+  }
+write.csv(x = solutions_hill_50_50, file = 'C:/Users/pablo/Desktop/DS - Primo anno Secondo Semestre/Decision Models/Progetto/fanta_nba/Risultati_hill_climbing/solutions_hill_50_50.csv')
+
+
+  for(i in 1:18){
+  d<- datasets[i][[1]]
+
+  print(c('Giornata' = i, 'Parametri' = '30_70', 'Tempo impiegato' = system.time(sol_30_70 <- hill_climbing_iterated(100,evaluator))[[3]]))
+  solutions_hill_30_70[i,] <- c(sum(d[sol_30_70==1,]$Projection), sum(d[sol_30_70==1,]$Actual_fpts))
+  }
+write.csv(x = solutions_hill_30_70, file = 'C:/Users/pablo/Desktop/DS - Primo anno Secondo Semestre/Decision Models/Progetto/fanta_nba/Risultati_hill_climbing/solutions_hill_30_70.csv')
+
+
+for(i in 1:18){
+    d<- datasets[i][[1]]
+    print(c('Giornata' = i, 'Parametri' = '70_30', 'Tempo impiegato' = system.time(sol_70_30 <- hill_climbing_folded(100,evaluator_70_30))[[3]]))
+    
+  solutions_hill_70_30[i,] <- c(sum(d[sol_70_30==1,]$Projection), sum(d[sol_70_30==1,]$Actual_fpts))
+    }
+write.csv(x = solutions_hill_70_30, file = 'C:/Users/pablo/Desktop/DS - Primo anno Secondo Semestre/Decision Models/Progetto/fanta_nba/Risultati_hill_climbing/solutions_hill_70_30.csv')
+
+
+  for(i in 1:18){
+    d<- datasets[i][[1]]
+    print(c('Giornata' = i, 'Parametri' = 'Norm', 'Tempo impiegato' = system.time(sol_norm <- hill_climbing_folded(1000,evaluator_norm))[[3]]))
+    
+  solutions_hill_norm[i,] <- c(sum(d[sol_norm==1,]$Projection), sum(d[sol_norm==1,]$Actual_fpts))
+  
+  }
+
+ write.csv(x = solutions_hill_norm, file = 'C:/Users/pablo/Desktop/DS - Primo anno Secondo Semestre/Decision Models/Progetto/fanta_nba/Risultati_hill_climbing/solutions_hill_norm.csv')
+
+
+```
